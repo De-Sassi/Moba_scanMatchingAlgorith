@@ -1,46 +1,81 @@
 close all;
-test1=readtable('ScanFilesNew\Scan000000.dat');
-test2=readtable('ScanFilesNew\Scan000080.dat');
-X=table2array(test1);
-P=table2array(test2);
 
-
-
-%get dot cloud
+prompt = 'Provide user info or default. Enter 1 for default.\n Any other for user info';
+x = input(prompt);
+if(x==1)
+    dir_to_search = 'ScanFilesNew\';
+    txtpattern = fullfile(dir_to_search, '*.dat');
+else
+    prompt = 'Provide folder path of the files.\n The files in the folder need to be in the right order \n Enter to continue';
+    x = input(prompt);
+    folder=uigetdir();
+    str=input('What is the file ending? (eg .dat). Files need to be tables','s');
+%     str = input(prompt);
+    s = strcat('*.',str);
+    txtpattern = fullfile(folder,s);
+end
 theta=deg2rad(0:180);
-[x,y]=pol2cart(theta.',X);
-%cartesian
-X_k=[x,y];
-X_k=X_k.';
-[x,y]=pol2cart(theta.',P);
-P_k=[x,y];
-P_k=P_k.';
+files_info=dir(txtpattern);
+tic
+%itterate over all datafiles.
+i=1;
+skipsize=20;
+while i+skipsize<length(files_info)
+   filename = fullfile(dir_to_search, files_info(i).name);
+   X=readtable(filename);
+   filename = fullfile(dir_to_search, files_info(i+skipsize).name);
+   P=readtable(filename);
+   X=table2array(X);
+   P=table2array(P);
+   X_k=get_cartesian_matrix(X,theta);
+   P_k=get_cartesian_matrix(P,theta);
+   [R,t]=icp(X_k,P_k,0);
+   i=i+skipsize;
+end
 
+timet=toc;
 
-% % test wolken
-% vector=1:20;
-% X_k=[vector;vector];
-% pz=5*ones(1,20);
-% P_k=[pz;vector]
-
-% X_k=[-10 0 0 10 0;0 -10 10 0 0];
-% a=60;
-% rot=[cosd(a) -sind(a);sind(a) cosd(a)];
-% P_k=[-10 0 0 10 1;0 -10 10 0 1];
+% test1=readtable('ScanFilesNew\Scan000000.dat');
+% test2=readtable('ScanFilesNew\Scan000080.dat');
+% X=table2array(test1);
+% P=table2array(test2);
 % 
-%     for i=1:4
-%         point=P_k(:,i);
-%         rPoint=rot*point;
-%         P_k(:,i)=rPoint;
-%     end
+% 
+% 
+% X_k=get_cartesian_matrix(X,theta);
+% P_k=get_cartesian_matrix(P,theta);
+% 
+% % % test wolken
+% % vector=1:20;
+% % X_k=[vector;vector];
+% % pz=5*ones(1,20);
+% % P_k=[pz;vector]
+% 
+% % X_k=[-10 0 0 10 0;0 -10 10 0 0];
+% % a=60;
+% % rot=[cosd(a) -sind(a);sind(a) cosd(a)];
+% % P_k=[-10 0 0 10 1;0 -10 10 0 1];
+% % 
+% %     for i=1:4
+% %         point=P_k(:,i);
+% %         rPoint=rot*point;
+% %         P_k(:,i)=rPoint;
+% %     end
+% 
+%  %paint
+%  paint_kartesian_image(X_k,'k');
+%  hold on;
+%  paint_kartesian_image(P_k,'m');
+%  hold on;
+% 
+% [R,t]=icp(X_k,P_k,1);
 
- %paint
- paint_kartesian_image(X_k,'k');
- hold on;
- paint_kartesian_image(P_k,'m');
- hold on;
-
-[R,t]=icp(X_k,P_k,1);
+function X_k=get_cartesian_matrix(X,theta)
+    [x,y]=pol2cart(theta.',X);
+    %cartesian
+    X_k=[x,y];
+    X_k=X_k.';
+end
 
 %gives the rotation matrix and the translation vector for matching one
 %point cloud P_k to another X_k. The Matrices are in cartesian coorinates
@@ -139,16 +174,16 @@ end
 function [equal]=verify(M_k,P_k,R,t,paint)
 
     %verify result
+    result=P_k;
+    for i=1:length(P_k)
+        point=P_k(:,i);
+        rPoint=R*point;
+        result(:,i)=rPoint+t;
+    end
     if(paint)
         figure('Name','Solution');
         paint_kartesian_image(M_k,'c');
         hold on;
-        result=P_k;
-        for i=1:length(P_k)
-                point=P_k(:,i);
-                rPoint=R*point;
-                result(:,i)=rPoint+t;
-        end
         paint_kartesian_image(result,'m');
         hold on
     end
