@@ -1,6 +1,7 @@
-close all;
+clc; clear all; close all;
 
-prompt = 'Provide user info or default. Enter 1 for default.\n Any other for user info';
+%User Inerface - File path request                                          *Anleitung how to use
+prompt = 'Provide user info or default. Enter 1 for default.\n Any other for user info ';
 x = input(prompt);
 if(x==1)
     dir_to_search = 'ScanFilesNew\';
@@ -14,12 +15,15 @@ else
     s = strcat('*.',str);
     txtpattern = fullfile(folder,s);
 end
+%init
 theta=deg2rad(0:180);
 files_info=dir(txtpattern);
 tic
 %itterate over all datafiles.
 i=1;
-skipsize=20;
+skipsize=20;                                                               
+
+%ICP main-loop
 while i+skipsize<length(files_info)
    filename = fullfile(dir_to_search, files_info(i).name);
    X=readtable(filename);
@@ -70,6 +74,7 @@ timet=toc;
 % 
 % [R,t]=icp(X_k,P_k,1);
 
+%transverts polar to cartesian coordinates of a supplied point-cloud
 function X_k=get_cartesian_matrix(X,theta)
     [x,y]=pol2cart(theta.',X);
     %cartesian
@@ -90,7 +95,7 @@ function [R,t]=icp(X_k,P_k,paint)
     mue_x=calc_mue(X_k);
     %Delaunay triangulation for faster calculation of closest points
     triang=delaunayn(X_k.');
-    %store closest points. if it doesn change anymore calculation can be
+    %store closest points. if it doesn't change anymore, calculation can be
     %stopped.
     oldClosest=zeros(length(P_k),1);
     closest=ones(length(P_k),1);
@@ -99,15 +104,15 @@ function [R,t]=icp(X_k,P_k,paint)
     totalTranslation=zeros(2,1);
     %transpose of X_k is used many times. so store here
     transpX_k=X_k.';
-    while(~isequal(oldClosest,closest))
-        
-        oldClosest=closest;
-       
+    
+    while(~isequal(oldClosest,closest))                                    
+        oldClosest=closest;                                                
+
         [R,t]=get_optimal_R_and_t(M_k,transpX_k,mue_x,triang);
-        %Neue Punktwolke
+        %new point cloud
         M_k=new_point_cloud(M_k,R,t);
         
-        if(paint)
+        if(paint)                                                           
             %paint to follow change
             figure('Name','Evolution');
             paint_kartesian_image(X_k,'k');
@@ -128,30 +133,33 @@ function [R,t]=icp(X_k,P_k,paint)
  
 end
 
+%gives optimal rotation matrix and translation vector of two point clouds
 function [R,t]=get_optimal_R_and_t(M_k,transpX_k,mue_x,triang)
 
         mue_p=calc_mue(M_k);
         %get closest points
         %gives indices of the closest points in X_k for each point in M_k
         closest=dsearchn(transpX_k,triang,M_k.');
-        %Kreuzterm der Kostenfunktion
+        %cross term of the cost function
         W=zeros(2);
         for i=1:length(M_k)
-            point=transpX_k(closest(i),:);
+            point=transpX_k(closest(i),:);                                 
             x=point.'-mue_x;
             p=M_k(:,i)-mue_p;
             W=W+x*p.';
         end
-        %Singulärwertzerlegung
+        %singular value decomposition
         [U,S,V]=svd(W);
-        %Optimale Rotationsmatrix
+        %optimal rotation matrix
         R=U*V.';
-        %optimaler Translationsvektor
+        %optimal translation vector
         t=mue_x-R*mue_p;
 end
 
+%relocates the point cloud according to the supplied rotation matrix and 
+%translation vector.
 function [M]=new_point_cloud(M_k,R,t)
- %Neue Punktwolke
+ %new point cloud
         for i=1:length(M_k)
             point=M_k(:,i);
             rPoint=R*point;
@@ -160,11 +168,13 @@ function [M]=new_point_cloud(M_k,R,t)
         M=M_k;
 end
 
+%get the mean values of a point cloud
 function [mue]=calc_mue(M_k)
     mue=sum(M_k.')/length(M_k);
     mue=mue.';
 end
 
+%gives map with point cloud on it
 function paint_kartesian_image(X_k, color)
     x = X_k(1, :);
     y = X_k(2, :);
@@ -187,5 +197,5 @@ function [equal]=verify(M_k,P_k,R,t,paint)
         paint_kartesian_image(result,'m');
         hold on
     end
-    equal=isequal(result,M_k);
+    equal=isequal(result,M_k);                                             
 end
