@@ -1,0 +1,15 @@
+%test function for icp. is in vision tool box
+
+function [R,t,M_k]=matlabicp(X_k,P_k)
+   
+    X_3D=[X_k;zeros(1,length(X_k))];
+    P_3D=[P_k;zeros(1,length(P_k))];
+    ptcloud_x=pointCloud(X_3D');
+    ptcloud_p=pointCloud(P_3D.');
+    tform=pcregistericp(ptcloud_p,ptcloud_x);
+    newcloud=pctransform(ptcloud_p,tform);
+    M_k=newcloud.Location(:,1:2);
+    M_k=M_k.';
+    R=tform.T(1:2,1:2);
+    t=tform.T(4,1:2);
+end
